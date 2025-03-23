@@ -186,6 +186,7 @@ CSRF_TRUSTED_ORIGINS = [
 CSRF_COOKIE_HTTPONLY = False  # Ensure False (default: False, but just in case)
 CSRF_COOKIE_SECURE = True  # If using HTTPS, set this to True
 CSRF_USE_SESSIONS = False  # Set to False to use CSRF token as a cookie
+CSRF_COOKIE_SAMESITE = "None" 
 
 CORS_ALLOW_CREDENTIALS = True
 

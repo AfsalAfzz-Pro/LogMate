@@ -49,7 +49,4 @@ def upload_log(request):
 
 def get_csrf_token(request):
     token = get_token(request)
-    response = JsonResponse({'csrfToken': token})
-    response.set_cookie("csrftoken", token, httponly=False, secure=True, samesite="None")
-    return response
-    # return JsonResponse({'csrfToken': token})
+    return JsonResponse({'csrfToken': token})
