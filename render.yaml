@@ -1,0 +1,42 @@
+services:
+  - name: redis
+    type: redis
+    plan: free
+
+  - name: django-backend
+    type: web
+    env: docker
+    dockerfilePath: ./logmate/Dockerfile.backend
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: logmate.settings
+      - key: REDIS_URL
+        fromService:
+          name: redis
+          property: connectionString
+    startCommand: daphne -b 0.0.0.0 -p 8000 logmate.asgi:application
+    autoDeploy: true
+
+  - name: celery-worker
+    type: worker
+    env: docker
+    dockerfilePath: ./logmate/Dockerfile.backend
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          name: redis
+          property: connectionString
+    startCommand: celery -A logmate worker --loglevel=info --concurrency=4
+    autoDeploy: true
+
+  - name: react-frontend
+    type: web
+    env: docker
+    dockerfilePath: ./logmate_frontend/Dockerfile.frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: REACT_APP_BACKEND_URL
+        value: https://django-backend.onrender.com
+    autoDeploy: true
+
