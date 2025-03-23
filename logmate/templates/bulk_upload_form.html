@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simulated Individual Log Uploads</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+</head>
+<body class="bg-gray-100 p-6">
+  <div class="container mx-auto">
+    <h1 class="text-2xl font-bold mb-4">Simulated Individual Log Uploads (50 Copies)</h1>
+
+    <form id="individualUploadForm" enctype="multipart/form-data" class="mb-4">
+      {% csrf_token %}
+      <input type="file" name="log_files" multiple class="border p-2 mb-2">
+      <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Upload</button>
+    </form>
+
+    <div id="progress" class="mb-4"></div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full bg-white border border-gray-200">
+        <thead class="bg-gray-200">
+          <tr>
+            <th class="py-2 px-4 border">File</th>
+            <th class="py-2 px-4 border">Task ID</th>
+            <th class="py-2 px-4 border">Upload Status</th>
+            <th class="py-2 px-4 border">Task Status (API Response)</th>
+            <th class="py-2 px-4 border">Action</th>
+          </tr>
+        </thead>
+        <tbody id="results">
+          <!-- Table rows will be appended here -->
+        </tbody>
+      </table>
+    </div>
+
+    <script>
+      $(document).ready(function() {
+        // Store task id by unique row id for later manual checks.
+        var taskIdByUniqueId = {};
+        var processedCount = 0;
+        var processedTasks = {};  // track tasks that have been finalized
+        var totalUploads = 0;
+        var startTime = Date.now();
+        var processTimes = [];
+
+        $('#individualUploadForm').submit(function(event) {
+          event.preventDefault();
+          $('#progress').empty();
+          $('#results').empty();
+          // Clear stored task ids
+          taskIdByUniqueId = {};
+          processedCount = 0;
+          processedTasks = {};
+          startTime = Date.now();
+          processTimes = [];
+
+          var files = $('#individualUploadForm input[type="file"]')[0].files;
+          totalUploads = files.length * 50;
+
+          $('#progress').append(`<p class="text-lg">Processed: <span id="processed-count">0</span> / ${totalUploads}, Estimated Time: <span id="estimated-time">Calculating...</span></p>`);
+
+          for (var i = 0; i < files.length; i++) {
+            for (var j = 0; j < 50; j++) {
+              uploadFile(files[i]);
+            }
+          }
+        });
+
+        function uploadFile(file) {
+          var uniqueId = file.name + '-' + Math.random().toString(36).substring(2, 15);
+          // Create table row with 5 columns: file, task id, upload status, task status and action button.
+          var rowHtml = `<tr id="row-${uniqueId}">
+              <td class="py-2 px-4 border">${file.name}</td>
+              <td class="py-2 px-4 border" id="taskid-${uniqueId}">N/A</td>
+              <td class="py-2 px-4 border" id="upload-status-${uniqueId}">Pending</td>
+              <td class="py-2 px-4 border" id="status-${uniqueId}">Pending</td>
+              <td class="py-2 px-4 border">
+                <button class="check-btn bg-indigo-500 text-white px-2 py-1 rounded" data-uniqueid="${uniqueId}">Check Status</button>
+              </td>
+            </tr>`;
+          $('#results').append(rowHtml);
+
+          var formData = new FormData();
+          formData.append('log_file', file);
+          formData.append('csrfmiddlewaretoken', $('input[name=csrfmiddlewaretoken]').val());
+
+          $.ajax({
+            url: '/upload/',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(data) {
+              if (data.task_id) {
+                // Save task id in our mapping.
+                taskIdByUniqueId[uniqueId] = data.task_id;
+                // Update the row with the task id.
+                $(`#taskid-${uniqueId}`).text(data.task_id);
+                $(`#upload-status-${uniqueId}`).text('Uploaded. Processing...');
+                // Optionally, you can automatically check status:
+                checkTaskStatus(data.task_id, `status-${uniqueId}`, uniqueId);
+              } else if (data.error) {
+                $(`#upload-status-${uniqueId}`).text(`Upload Error: ${data.error}`);
+              } else {
+                $(`#upload-status-${uniqueId}`).text(data.message);
+              }
+            },
+            error: function(error) {
+              $(`#upload-status-${uniqueId}`).text('Upload Failed.');
+              console.error(error);
+            }
+          });
+        }
+
+        // When a manual check button is clicked, call checkTaskStatus for that row.
+        $(document).on('click', '.check-btn', function() {
+          var uniqueId = $(this).data('uniqueid');
+          var taskId = taskIdByUniqueId[uniqueId];
+          if (taskId) {
+            checkTaskStatus(taskId, `status-${uniqueId}`, uniqueId);
+          } else {
+            alert('No task id found for this row.');
+          }
+        });
+
+        function checkTaskStatus(taskId, statusElementId, uniqueId, retryCount = 0) {
+          $.get(`/task_status/${taskId}/`, function(data) {
+            // Show the entire raw API response in the Task Status column.
+            $(`#${statusElementId}`).text(JSON.stringify(data));
+
+            // Update progress only once per finalized task.
+            if (data.status !== 'PENDING' && !processedTasks[uniqueId]) {
+              processedTasks[uniqueId] = true;
+              updateProgress();
+            }
+            // If still pending, optionally auto-check again (or rely on manual button).
+            if (data.status === 'PENDING') {
+              var nextRetry = retryCount < 3 ? retryCount + 1 : 1;
+              setTimeout(function() {
+                checkTaskStatus(taskId, statusElementId, uniqueId, nextRetry);
+              }, 1000);
+            }
+          });
+        }
+
+        function updateProgress() {
+          processedCount++;
+          var currentTime = Date.now();
+          processTimes.push((currentTime - startTime) / processedCount);
+          $('#processed-count').text(processedCount);
+
+          if (processedCount >= totalUploads) {
+            $('#estimated-time').text('0s');
+          } else {
+            var avgTime = processTimes.reduce((a, b) => a + b, 0) / processTimes.length;
+            var remainingTime = (totalUploads - processedCount) * avgTime;
+            $('#estimated-time').text(formatTime(remainingTime));
+          }
+        }
+
+        function formatTime(ms) {
+          var seconds = Math.floor(ms / 1000);
+          var minutes = Math.floor(seconds / 60);
+          var hours = Math.floor(minutes / 60);
+          seconds = seconds % 60;
+          minutes = minutes % 60;
+          return (hours > 0 ? hours + 'h ' : '') + (minutes > 0 ? minutes + 'm ' : '') + seconds + 's';
+        }
+      });
+    </script>
+  </div>
+</body>
+</html>

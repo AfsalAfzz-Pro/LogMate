@@ -1,0 +1,26 @@
+# Dockerfile.backend
+FROM python:3.9-slim
+
+# Prevent Python from writing .pyc files and enable unbuffered stdout/stderr
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y build-essential libpq-dev gcc
+
+# Copy and install requirements (create a requirements.txt in your project root if you haven't already)
+COPY requirements.txt /app/
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy the entire project
+COPY . /app/
+
+# Expose port 8000 for Daphne (ASGI server)
+EXPOSE 8000
+
+# Run Daphne to serve the ASGI application (using logmate.asgi:application)
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "logmate.asgi:application"]

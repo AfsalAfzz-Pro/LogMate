@@ -1,0 +1,21 @@
+# Base image
+FROM node:18-bullseye
+
+# Set working directory
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# Install dependencies with special flag to force compilation of native modules
+# This is the key fix for the rollup issue
+RUN npm install --platform=linux --arch=x64
+
+# Copy the rest of the frontend code
+COPY . .
+
+# Expose the port Vite uses
+EXPOSE 5173
+
+# Use the --host flag to make Vite accessible outside the container
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./logmate
+      dockerfile: Dockerfile.backend
+    container_name: django_backend
+    command: daphne -b 0.0.0.0 -p 8000 logmate.asgi:application
+    volumes:
+      - ./logmate:/app
+      - shared_tmp:/tmp
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    environment:
+      - DJANGO_SETTINGS_MODULE=logmate.settings
+      - REDIS_URL=redis://redis:6379/0
+
+  worker:
+    build:
+      context: ./logmate
+      dockerfile: Dockerfile.backend
+    container_name: celery_worker
+    command: celery -A logmate worker --loglevel=info --concurrency=4
+    volumes:
+      - ./logmate:/app
+      - shared_tmp:/tmp
+    depends_on:
+      - redis
+      - backend
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      
+  frontend:
+    build:
+      context: ./logmate_frontend
+      dockerfile: Dockerfile.frontend
+    container_name: react_frontend
+    volumes:
+      - ./logmate_frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  shared_tmp:

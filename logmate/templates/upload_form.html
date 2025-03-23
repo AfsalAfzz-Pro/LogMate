@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Log Uploader with Real-time Status</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6">
+<div class="container mx-auto">
+  <h1 class="text-2xl font-bold mb-4">Log Uploader with Real-time Status</h1>
+
+  <form id="uploadForm" method="POST" enctype="multipart/form-data" class="mb-4">
+    {% csrf_token %}
+    <input type="file" name="log_file" class="border p-2 mb-2">
+    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Upload</button>
+  </form>
+
+  <div id="uploadResponse" class="mb-4 text-gray-800"></div>
+
+  <!-- Progress Bar Container -->
+  <div class="w-full bg-gray-300 h-4 rounded mb-2">
+    <div id="progressBar" class="h-4 bg-green-500 rounded" style="width: 0%;"></div>
+  </div>
+  <p id="progressText" class="text-gray-700 mb-4">No progress yet.</p>
+
+  <!-- Final Results Panel -->
+  <div id="finalResult" class="bg-white p-4 rounded shadow hidden">
+    <h2 class="text-xl font-semibold mb-2">Processing Complete</h2>
+    <div id="resultDetails" class="text-gray-800">
+      <!-- Detailed statistics will be inserted here -->
+    </div>
+  </div>
+</div>
+
+<script>
+  // 1) Connect to the WebSocket endpoint
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  const socketUrl = protocol + "://" + window.location.host + "/ws/logstatus/";
+  const logSocket = new WebSocket(socketUrl);
+
+  // Track totalChunks for progress calculation
+  let totalChunks = 5;
+  let lastChunkIndex = 0;
+
+  // 2) Handle incoming messages from the WebSocket
+  logSocket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+
+    if (data.event === "CHUNK") {
+      totalChunks = data.totalChunks;  // in case it's dynamic
+      lastChunkIndex = data.chunkIndex;
+
+      // Update progress bar
+      const percent = Math.floor((data.chunkIndex / data.totalChunks) * 100);
+      document.getElementById("progressBar").style.width = percent + "%";
+      document.getElementById("progressText").textContent = 
+        `Processing chunk ${data.chunkIndex}/${data.totalChunks} (${data.processedCount}/${data.totalLines} lines)`;
+    } else if (data.event === "COMPLETE") {
+      // Update progress bar to complete
+      document.getElementById("progressText").textContent = "Done!";
+      document.getElementById("progressBar").style.width = "100%";
+
+      // Build detailed results from data.result
+      const result = data.result;
+      let detailsHtml = `
+        <p><strong>Total Lines:</strong> ${result.lineCount}</p>
+        <p><strong>Total Bytes:</strong> ${result.totalBytes}</p>
+        <div class="mt-2">
+          <h3 class="font-semibold">HTTP Methods:</h3>
+          <ul class="list-disc ml-5">`;
+      for (const [method, count] of Object.entries(result.methodsCount)) {
+        detailsHtml += `<li>${method}: ${count}</li>`;
+      }
+      detailsHtml += `</ul>
+        </div>
+        <div class="mt-2">
+          <h3 class="font-semibold">Status Codes:</h3>
+          <ul class="list-disc ml-5">`;
+      for (const [status, count] of Object.entries(result.statusCount)) {
+        detailsHtml += `<li>${status}: ${count}</li>`;
+      }
+      detailsHtml += `</ul>
+        </div>
+        <div class="mt-2">
+          <h3 class="font-semibold">Top 3 Requested Paths:</h3>
+          <ul class="list-disc ml-5">`;
+      result.topPaths.forEach(item => {
+        detailsHtml += `<li>${item[0]} (${item[1]} times)</li>`;
+      });
+      detailsHtml += `</ul>
+        </div>
+      `;
+
+      // Show final results panel with detailed statistics
+      const finalResultDiv = document.getElementById("finalResult");
+      document.getElementById("resultDetails").innerHTML = detailsHtml;
+      finalResultDiv.classList.remove("hidden");
+    }
+  };
+
+  // 3) Handle the upload form submission
+  const uploadForm = document.getElementById("uploadForm");
+  uploadForm.addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(uploadForm);
+    fetch("/upload/", {
+      method: "POST",
+      body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+      document.getElementById("uploadResponse").textContent = JSON.stringify(data);
+      console.log("Server response:", data);
+
+      // Reset progress UI
+      document.getElementById("progressBar").style.width = "0%";
+      document.getElementById("progressText").textContent = "Starting...";
+      document.getElementById("finalResult").classList.add("hidden");
+      document.getElementById("resultDetails").innerHTML = "";
+    })
+    .catch(err => console.error(err));
+  });
+</script>
+</body>
+</html>
