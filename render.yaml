@@ -2,12 +2,13 @@ services:
   - name: redis
     type: redis
     plan: free
-    ipAllowList: []  # Allows access from all Render services
+    ipAllowList: []  # Allows all internal Render services to connect
 
   - name: django-backend
     type: web
-    env: docker
-    dockerfilePath: ./logmate/Dockerfile.backend
+    runtime: python  # Uses a standard Python environment (not Docker)
+    buildCommand: pip install -r requirements.txt && python manage.py migrate
+    startCommand: daphne -b 0.0.0.0 -p 8000 logmate.asgi:application
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: logmate.settings
@@ -20,8 +21,9 @@ services:
 
   - name: celery-worker
     type: worker
-    env: docker
-    dockerfilePath: ./logmate/Dockerfile.backend
+    runtime: python  # Uses standard Python environment
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A logmate worker --loglevel=info --concurrency=4
     envVars:
       - key: REDIS_URL
         fromService:
@@ -32,8 +34,9 @@ services:
 
   - name: react-frontend
     type: web
-    env: docker
-    dockerfilePath: ./logmate_frontend/Dockerfile.frontend
+    runtime: static  # Uses Render's static site hosting (React)
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
     envVars:
       - key: REACT_APP_BACKEND_URL
         value: https://django-backend.onrender.com
