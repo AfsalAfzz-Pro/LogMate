@@ -53,18 +53,25 @@ const LogUpload = ({ onFileUpload }) => {
     
     // Get CSRF token once for all uploads
     try {
+      console.log("Fetching CSRF token...");
       const csrfResponse = await fetch('https://django-backend-8yn4.onrender.com/csrf-token/', {
         method: 'GET',
         credentials: 'include'
       });
 
-      console.log("csrfResponse", csrfResponse);
+      console.log("CSRF response status:", csrfResponse.status);
+      console.log("CSRF response headers:", Object.fromEntries([...csrfResponse.headers.entries()]));
 
-      if (!csrfResponse.ok) throw new Error('Failed to get CSRF token');
+      if (!csrfResponse.ok) {
+        const errorText = await csrfResponse.text().catch(e => "Could not read response body");
+        console.error("Failed to get CSRF token:", csrfResponse.status, errorText);
+        throw new Error(`Failed to get CSRF token: ${csrfResponse.status} ${csrfResponse.statusText}`);
+      }
 
       const csrfData = await csrfResponse.json();
+      console.log("CSRF token received successfully");
       const csrfToken = csrfData.csrfToken;
-
+      console.log("CSRF token:", csrfToken);
       // Upload all files concurrently
       const uploadPromises = queue.map(async (queueItem, index) => {
         const { file } = queueItem;
@@ -87,14 +94,21 @@ const LogUpload = ({ onFileUpload }) => {
         formData.append('log_file', file);
 
         try {
+          console.log("Sending upload request with CSRF token:", csrfToken);
+          const uploadHeaders = {
+            'X-CSRFToken': csrfToken
+          };
+          console.log("Request headers:", uploadHeaders);
+          
           const response = await fetch('https://django-backend-8yn4.onrender.com/upload/', {
             method: 'POST',
             body: formData,
             credentials: 'include',
-            headers: {
-              'X-CSRFToken': csrfToken
-            }
+            headers: uploadHeaders
           });
+          
+          console.log("Upload response status:", response.status);
+          console.log("Upload response headers:", Object.fromEntries([...response.headers.entries()]));
 
           if (!response.ok) throw new Error('Upload failed');
 
