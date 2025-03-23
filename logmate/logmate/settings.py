@@ -165,13 +165,26 @@ CHANNEL_LAYERS = {
     },
 }
 
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:5173",
+# ]
+
+# CSRF_TRUSTED_ORIGINS = ['http://localhost:5173']
+
+# CORS_ALLOW_CREDENTIALS = True
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "https://react-frontend-2v06.onrender.com",  # Add your deployed frontend URL
 ]
 
-CSRF_TRUSTED_ORIGINS = ['http://localhost:5173']
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "https://react-frontend-2v06.onrender.com",  # Add your deployed frontend URL
+]
 
 CORS_ALLOW_CREDENTIALS = True
+
 
 # Celery settings for concurrent task handling
 CELERY_TASK_TRACK_STARTED = True
