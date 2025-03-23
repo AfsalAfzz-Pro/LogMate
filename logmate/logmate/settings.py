@@ -183,6 +183,10 @@ CSRF_TRUSTED_ORIGINS = [
     "https://react-frontend-2v06.onrender.com",  # Add your deployed frontend URL
 ]
 
+CSRF_COOKIE_HTTPONLY = False  # Ensure False (default: False, but just in case)
+CSRF_COOKIE_SECURE = True  # If using HTTPS, set this to True
+CSRF_USE_SESSIONS = False  # Set to False to use CSRF token as a cookie
+
 CORS_ALLOW_CREDENTIALS = True
 
 
