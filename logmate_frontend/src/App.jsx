@@ -58,6 +58,8 @@ const LogUpload = ({ onFileUpload }) => {
         credentials: 'include'
       });
 
+      console.log("csrfResponse", csrfResponse);
+
       if (!csrfResponse.ok) throw new Error('Failed to get CSRF token');
 
       const csrfData = await csrfResponse.json();
