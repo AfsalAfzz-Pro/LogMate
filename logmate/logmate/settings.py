@@ -12,7 +12,6 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 from kombu import Exchange, Queue
-import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -27,7 +26,7 @@ SECRET_KEY = "django-insecure-waeis14pf_h7ltp22n(=8d2yggqtp&sw+6juh(90h&s*wjojpv
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['django-backend-8yn4.onrender.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -129,15 +128,11 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-
 # Celery settings
 # CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0' #or redis://localhost:6379/0
 # CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
-# CELERY_BROKER_URL = 'redis://redis:6379/0'
-# CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
-CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
 
 CELERY_TASK_ALWAYS_EAGER = False #ensure tasks are sent to the worker.
 CELERY_WORKER_POOL = 'solo' #this runs celery in a single process.
@@ -146,50 +141,23 @@ CELERY_WORKER_POOL = 'solo' #this runs celery in a single process.
 # ASGI_APPLICATION = "myproject.asgi.application"
 ASGI_APPLICATION = "logmate.asgi.application"
 
-# CHANNEL_LAYERS = {
-#     'default': {
-#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
-#         'CONFIG': {
-#             # "hosts": [("127.0.0.1", 6379)],
-#             "hosts": [("redis", 6379)],
-#         },
-#     },
-# }
-
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [os.getenv("REDIS_URL", "redis://localhost:6379/0")],
+            # "hosts": [("127.0.0.1", 6379)],
+            "hosts": [("redis", 6379)],
         },
     },
 }
 
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:5173",
-# ]
-
-# CSRF_TRUSTED_ORIGINS = ['http://localhost:5173']
-
-# CORS_ALLOW_CREDENTIALS = True
-
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "https://react-frontend-2v06.onrender.com",  # Add your deployed frontend URL
 ]
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "https://react-frontend-2v06.onrender.com",  # Add your deployed frontend URL
-]
-
-CSRF_COOKIE_HTTPONLY = False  # Ensure False (default: False, but just in case)
-CSRF_COOKIE_SECURE = True  # If using HTTPS, set this to True
-CSRF_USE_SESSIONS = False  # Set to False to use CSRF token as a cookie
-CSRF_COOKIE_SAMESITE = "None" 
+CSRF_TRUSTED_ORIGINS = ['http://localhost:5173']
 
 CORS_ALLOW_CREDENTIALS = True
-
 
 # Celery settings for concurrent task handling
 CELERY_TASK_TRACK_STARTED = True

@@ -54,7 +54,7 @@ const LogUpload = ({ onFileUpload }) => {
     // Get CSRF token once for all uploads
     try {
       console.log("Fetching CSRF token...");
-      const csrfResponse = await fetch('https://django-backend-8yn4.onrender.com/csrf-token/', {
+      const csrfResponse = await fetch('http://localhost:8000/csrf-token/', {
         method: 'GET',
         credentials: 'include'
       });
@@ -100,7 +100,7 @@ const LogUpload = ({ onFileUpload }) => {
           };
           console.log("Request headers:", uploadHeaders);
           
-          const response = await fetch('https://django-backend-8yn4.onrender.com/upload/', {
+          const response = await fetch('http://localhost:8000/upload/', {
             method: 'POST',
             body: formData,
             credentials: 'include',
@@ -410,8 +410,8 @@ const ProcessingStatus = ({ taskId, fileName, onTaskSelect }) => {
   // Initialize WebSocket only once when component mounts
   useEffect(() => {
     // Create a single WebSocket connection for all tasks
-    const baseUrl = window.location.hostname === 'localhost' ? 'ws://localhost:8000' : 'wss://django-backend-8yn4.onrender.com';
-    wsRef.current = new WebSocket(`${baseUrl}/ws/logstatus/`);
+    // const baseUrl = window.location.hostname === 'localhost' ? 'ws://localhost:8000' : 'wss://django-backend-8yn4.onrender.com';
+    wsRef.current = new WebSocket(`ws://localhost:8000/ws/logstatus/`);
 
     wsRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
