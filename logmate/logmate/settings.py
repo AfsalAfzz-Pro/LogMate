@@ -26,7 +26,11 @@ SECRET_KEY = "django-insecure-waeis14pf_h7ltp22n(=8d2yggqtp&sw+6juh(90h&s*wjojpv
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'backend',  # Add this line to allow Prometheus to scrape metrics
+]
 
 
 # Application definition
@@ -41,10 +45,12 @@ INSTALLED_APPS = [
     "logapp",
     "channels",
     "django_celery_results",
-    "corsheaders"
+    "corsheaders",
+    "django_prometheus",
 ]
 
 MIDDLEWARE = [
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -53,6 +59,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django_prometheus.middleware.PrometheusAfterMiddleware"
 ]
 
 ROOT_URLCONF = "logmate.urls"

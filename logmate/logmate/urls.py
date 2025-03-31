@@ -15,11 +15,12 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from logapp.views import upload_log, get_csrf_token
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("upload/", upload_log, name='upload_log'),
     path("csrf-token/", get_csrf_token, name='get_csrf_token'),
+    path('', include('django_prometheus.urls')),  # This will add the /metrics endpoint
 ]
