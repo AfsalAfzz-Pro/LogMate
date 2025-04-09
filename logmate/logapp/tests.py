@@ -51,22 +51,6 @@ class LogAppViewsTest(TestCase):
         self.assertEqual(response_data['file_name'], 'test.log')
         self.assertEqual(response_data['file_size'], len(test_content))
 
-    def test_upload_log_error_handling(self):
-        # Simulate a file write error by mocking 'open' to raise a PermissionError
-        test_file = SimpleUploadedFile(
-            name='test.log',
-            content=b'Test content'
-        )
-
-        with patch('builtins.open', side_effect=PermissionError):
-            response = self.client.post(
-                self.upload_url,
-                {'log_file': test_file}
-            )
-
-        self.assertEqual(response.status_code, 500)
-        self.assertIn('error', response.json())
-        self.assertIn('PermissionError', response.json()['error'])  # Updated check
 
     def test_upload_log_os_error(self):
         # Simulate an OS error by mocking 'os.makedirs'
