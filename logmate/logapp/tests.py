@@ -22,6 +22,7 @@ class LogAppViewsTest(TestCase):
         self.assertTemplateUsed(response, 'upload_form.html')
 
     def test_upload_log_no_file(self):
+        # Test when no file is uploaded
         response = self.client.post(self.upload_url)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json(), {'error': 'No file uploaded'})
@@ -51,22 +52,35 @@ class LogAppViewsTest(TestCase):
         self.assertEqual(response_data['file_size'], len(test_content))
 
     def test_upload_log_error_handling(self):
-        # Create an invalid file that will cause an error
+        # Simulate a file write error by mocking 'open' to raise a PermissionError
         test_file = SimpleUploadedFile(
             name='test.log',
             content=b'Test content'
         )
 
-        # Simulate an error by making the temp directory read-only
-        with patch('tempfile.gettempdir') as mock_tempdir:
-            mock_tempdir.return_value = '/nonexistent/directory'
+        with patch('builtins.open', side_effect=PermissionError):
             response = self.client.post(
                 self.upload_url,
                 {'log_file': test_file}
             )
 
         self.assertEqual(response.status_code, 500)
-        self.assertTrue('error' in response.json())
+        self.assertIn('error', response.json())
+        self.assertTrue('Permission denied' in response.json()['error'])
+
+    def test_upload_log_os_error(self):
+        # Simulate an OS error by mocking 'os.makedirs'
+        test_file = SimpleUploadedFile(
+            name='test.log',
+            content=b'Test content'
+        )
+
+        with patch('os.makedirs', side_effect=OSError("Mocked OS error")):
+            response = self.client.post(self.upload_url, {'log_file': test_file})
+
+        self.assertEqual(response.status_code, 500)
+        self.assertIn('error', response.json())
+        self.assertTrue('Mocked OS error' in response.json()['error'])
 
     def tearDown(self):
         # Clean up any temporary files
