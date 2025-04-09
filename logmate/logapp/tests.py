@@ -66,7 +66,7 @@ class LogAppViewsTest(TestCase):
 
         self.assertEqual(response.status_code, 500)
         self.assertIn('error', response.json())
-        self.assertTrue('Permission denied' in response.json()['error'])
+        self.assertIn('PermissionError', response.json()['error'])  # Updated check
 
     def test_upload_log_os_error(self):
         # Simulate an OS error by mocking 'os.makedirs'
