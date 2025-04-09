@@ -162,8 +162,7 @@ npm run dev
 
 ## 📱 Frontend Magic
 
-![UI Animation](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbTQxdjRsMXRkNW5zem9xdXlkZ2NhcWM3aG1renRpZXd1dzg4eHEzayZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/e4ve7zNhJjA0aiarBJ/giphy.gif)
-
+![UI Animation](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYms1eWsyc3d5eXV3eDVzMzV3M2U0ZWJkcWMwNGFmNWE5d2t1eHB3YiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/WOb8EeFziTQNE02WXs/giphy.gif)
 - **App**: Master controller
 - **LogUpload**: Portal for files
 - **ProcessingStatus**: Energy gauge
