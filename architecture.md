@@ -2,216 +2,244 @@
 
 ## System Overview
 
-LogMate is a web application for analyzing and processing log files concurrently. It provides real-time feedback on processing status and generates visualizations and analytics based on log content.
+LogMate is a scalable web application for processing and analyzing log files in real-time. It provides concurrent file processing, live status updates, and generates interactive visualizations based on log content.
 
-```
-┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-│               │     │               │     │               │
-│  React        │     │  Django       │     │  Celery       │
-│  Frontend     │◄────┤  Backend      │◄────┤  Workers      │
-│               │     │               │     │               │
-└───────────────┘     └───────────────┘     └───────────────┘
-        ▲                     ▲                     ▲
-        │                     │                     │
-        │                     │                     │
-        │                     │                     │
-        │                     │                     │
-        ▼                     ▼                     ▼
-┌──────────────────────────────────────────────────────────┐
-│                                                          │
-│                 WebSockets (Django Channels)             │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    F[React Frontend] <--> |WebSockets| D[Django Backend]
+    D <--> |Tasks| C[Celery Workers]
+    D <--> |Channel Layer| W[WebSockets/Django Channels]
+    C <--> |Message Broker| R[Redis]
+    W <--> F
+    C --> W
 ```
 
 ## Core Components
 
 ### 1. Frontend (React + Framer Motion)
-The frontend is built with React and enhanced with Framer Motion for animations. It consists of these main components:
+The frontend user interface is built with React and enhanced with Framer Motion for fluid animations:
 
-- **App**: Main container component
-- **Header**: Application title and description
-- **LogUpload**: Handles concurrent file uploads with prioritization
-- **ProcessingStatus**: Real-time status tracking for multiple files
-- **TaskDetails**: Displays results and analytics for processed files
+- **App**: Root container component that manages overall state
+- **Header**: Application branding and navigation elements
+- **LogUpload**: Handles drag-and-drop file uploads with smart prioritization
+- **ProcessingStatus**: Real-time progress tracking with animated indicators
+- **TaskDetails**: Interactive visualizations and analytics for processed logs
+- **ActionButtons**: Export, download, and share functionality
 
 ### 2. Backend (Django)
 The Django backend provides REST API endpoints and WebSocket connections:
 
-- **upload_log view**: Handles file uploads and dispatches Celery tasks
-- **LogStatusConsumer**: WebSocket consumer for real-time updates
+- **upload_log view**: Validates, processes, and dispatches files to Celery
+- **LogStatusConsumer**: WebSocket consumer for real-time bidirectional updates
+- **task_status view**: Endpoint for polling task completion status
+- **CSRF protection**: Secure token management for uploads
 
 ### 3. Asynchronous Processing (Celery)
-Celery workers process log files in the background:
+Celery workers handle CPU-intensive log processing tasks:
 
-- **process_log task**: Analyzes log files in chunks, sends progress updates
+- **process_log task**: Analyzes log files in optimized chunks
+- **generate_statistics task**: Extracts patterns and metrics from logs
+- **Status updates**: Sends incremental progress to connected clients
 
 ### 4. Real-time Communication (Django Channels)
-Django Channels manages WebSocket connections for real-time updates.
+Django Channels manages WebSocket connections for instant updates:
 
-## Data Flow Diagram
+- **Group management**: Organizes clients by task ID
+- **Broadcast updates**: Pushes progress notifications to relevant clients
+- **Connection handling**: Manages WebSocket lifecycle events
 
-```
-┌─────────────┐     ┌───────────────┐     ┌─────────────┐     ┌────────────────┐
-│             │     │               │     │             │     │                │
-│  User       │────►│  File Upload  │────►│  CSRF Token │────►│  Upload Files  │
-│             │     │  Component    │     │  Request    │     │  Concurrently  │
-│             │     │               │     │             │     │                │
-└─────────────┘     └───────────────┘     └─────────────┘     └────────────────┘
-                                                                       │
-                                                                       │
-                                                                       ▼
-┌─────────────┐     ┌───────────────┐     ┌─────────────┐     ┌────────────────┐
-│             │     │               │     │             │     │                │
-│  Results &  │◄────│  WebSocket    │◄────│  Django     │◄────│  Celery Tasks  │
-│  Analytics  │     │  Updates      │     │  Channels   │     │  Process Files │
-│             │     │               │     │             │     │                │
-└─────────────┘     └───────────────┘     └─────────────┘     └────────────────┘
+## Data Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant Backend
+    participant Celery
+    participant Redis
+    participant WebSockets
+
+    User->>Frontend: Select log files
+    Frontend->>Backend: Request CSRF token
+    Backend->>Frontend: Return CSRF token
+    Frontend->>Backend: Upload files (concurrent)
+    Backend->>Celery: Dispatch processing tasks
+    Backend->>Frontend: Return task IDs
+    Frontend->>WebSockets: Subscribe to task updates
+    Celery->>Redis: Process files in chunks
+    Redis->>WebSockets: Broadcast progress
+    WebSockets->>Frontend: Real-time updates
+    Celery->>Redis: Complete processing
+    Redis->>WebSockets: Send completion notification
+    WebSockets->>Frontend: Display results
+    Frontend->>User: Show analytics & visualizations
 ```
 
 ## Concurrent Processing Architecture
 
-LogMate implements a multi-worker architecture for concurrent file processing:
+LogMate implements a horizontal scaling architecture for processing multiple files simultaneously:
 
-```
-                    ┌───────────────────────┐
-                    │                       │
-                    │   Django Backend      │
-                    │                       │
-                    └───────────────────────┘
-                               │
-                               │ Distribute Tasks
-                               ▼
-┌───────────────┬───────────────┬───────────────┬───────────────┐
-│               │               │               │               │
-│  Celery       │  Celery       │  Celery       │  Celery       │
-│  Worker 1     │  Worker 2     │  Worker 3     │  Worker 4     │
-│               │               │               │               │
-└───────────────┴───────────────┴───────────────┴───────────────┘
-        │               │               │               │
-        │               │               │               │
-        ▼               ▼               ▼               ▼
-┌───────────────────────────────────────────────────────────────┐
-│                                                               │
-│                   Redis Message Broker               │
-│                                                               │
-└───────────────────────────────────────────────────────────────┘
-        │               │               │               │
-        │               │               │               │
-        ▼               ▼               ▼               ▼
-┌───────────────────────────────────────────────────────────────┐
-│                                                               │
-│                      Django Channels                          │
-│                                                               │
-└───────────────────────────────────────────────────────────────┘
-                               │
-                               │ WebSocket Updates
-                               ▼
-┌───────────────────────────────────────────────────────────────┐
-│                                                               │
-│                      React Frontend                           │
-│                                                               │
-└───────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph "Django Backend"
+    A[Upload Handler]
+    end
+
+    subgraph "Celery Workers"
+    B[Worker 1]
+    C[Worker 2]
+    D[Worker 3]
+    E[Worker 4]
+    end
+
+    subgraph "Message Broker"
+    F[Redis]
+    end
+
+    subgraph "WebSocket Layer"
+    G[Django Channels]
+    end
+
+    subgraph "Frontend"
+    H[React UI]
+    end
+
+    A --> B & C & D & E
+    B & C & D & E --> F
+    F --> G
+    G --> H
 ```
 
 ## File Upload Process
 
-1. User selects multiple log files
-2. Frontend sorts files by size (smallest first)
-3. Files are uploaded concurrently to Django backend 
-4. Each file is assigned a task ID and queued for processing
-5. Celery workers pick up tasks based on availability
-6. Processing status is broadcast via WebSockets
-7. Frontend displays real-time progress for all files
+1. User selects multiple log files through the drag-and-drop interface
+2. Frontend performs initial validation and sorts files by size (smallest first)
+3. Files are uploaded concurrently with progress tracking for each
+4. Backend validates file type and size (up to 50MB per file)
+5. Each file is assigned a unique task ID and queued for processing
+6. Celery workers claim tasks based on availability and priority
+7. Processing status updates are broadcast via WebSockets in real-time
+8. Frontend displays progress for all files with visual indicators
 
-## File Processing Flow
+## File Processing Pipeline
 
-Each log file is processed in 5 chunks:
-
+```mermaid
+graph LR
+    A[Read Chunk] --> B[Parse Lines]
+    B --> C[Extract Metrics]
+    C --> D[Update Statistics]
+    D --> E{More Chunks?}
+    E -->|Yes| A
+    E -->|No| F[Generate Visualizations]
+    F --> G[Send Completion]
 ```
-┌─────────────┐     ┌───────────────┐     ┌─────────────┐     ┌────────────────┐
-│             │     │               │     │             │     │                │
-│  Read File  │────►│  Process      │────►│  Update     │────►│  Next Chunk    │
-│  Chunk      │     │  Chunk Lines  │     │  Statistics │     │  or Complete   │
-│             │     │               │     │             │     │                │
-└─────────────┘     └───────────────┘     └─────────────┘     └────────────────┘
-       ▲                                                              │
-       └──────────────────────────────────────────────────────────────┘
+
+Each log file is processed in optimized chunks to balance memory usage and performance:
+
+1. File is divided into 5 equal chunks for efficient processing
+2. Each chunk is read and parsed line-by-line with regex pattern matching
+3. Metrics are extracted and aggregated incrementally
+4. Progress updates are sent after each chunk (20%, 40%, etc.)
+5. Final statistics and visualizations are generated upon completion
+
+## WebSocket Communication Protocol
+
+The system uses a standardized message format for all WebSocket communications:
+
+```json
+{
+  "type": "update",
+  "task_id": "abc123",
+  "status": "PROCESSING",
+  "progress": 60,
+  "current_chunk": 3,
+  "total_chunks": 5,
+  "stats": {
+    "lines_processed": 12500,
+    "http_methods": {"GET": 8750, "POST": 3000, "PUT": 750},
+    "status_codes": {"200": 10000, "404": 1500, "500": 1000}
+  }
+}
 ```
 
-## WebSocket Communication
-
-The system uses a single WebSocket connection to handle updates from multiple concurrent tasks:
-
-```
-┌────────────────────────────────────────────────────────────────────┐
-│                                                                    │
-│  WebSocket Message Types                                           │
-│                                                                    │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐   │
-│  │            │  │            │  │            │  │            │   │
-│  │  START     │  │  CHUNK     │  │  COMPLETE  │  │  ERROR     │   │
-│  │  Message   │  │  Message   │  │  Message   │  │  Message   │   │
-│  │            │  │            │  │            │  │            │   │
-│  └────────────┘  └────────────┘  └────────────┘  └────────────┘   │
-│                                                                    │
-└────────────────────────────────────────────────────────────────────┘
-```
+Message types include:
+- `STARTED`: Task has been claimed by a worker
+- `PROCESSING`: Task is actively being processed with progress
+- `COMPLETED`: Task finished successfully with full results
+- `ERROR`: Task encountered an issue with error details
 
 ## Frontend Component Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ App                                                             │
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │ Header                                                    │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                                                                 │
-│  ┌────────────────────────┐  ┌────────────────────────────────┐ │
-│  │                        │  │                                │ │
-│  │                        │  │                                │ │
-│  │                        │  │                                │ │
-│  │                        │  │                                │ │
-│  │      LogUpload         │  │     ProcessingStatus          │ │
-│  │                        │  │                                │ │
-│  │                        │  │                                │ │
-│  │                        │  │                                │ │
-│  │                        │  │                                │ │
-│  └────────────────────────┘  └────────────────────────────────┘ │
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │ TaskDetails (conditionally rendered)                      │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph "App Component"
+    A[App] --> B[Header]
+    A --> C[LogUpload]
+    A --> D[ProcessingStatus]
+    A --> E[TaskDetails]
+    E --> F[ResultTabs]
+    F --> G[LogSummary]
+    F --> H[StatusCodeChart]
+    F --> I[RequestPathTable]
+    F --> J[TimelineView]
+    end
 ```
 
-## Log Analysis Components
+Components use React context for state management and custom hooks for WebSocket integration:
+- `useWebSocket`: Manages connection and message handling
+- `useTaskStatus`: Tracks status of multiple concurrent tasks
+- `useLogAnalytics`: Processes and formats log statistics
 
-The system extracts and visualizes the following metrics from log files:
+## Log Analysis Metrics
 
-- Total lines processed
-- HTTP methods count
-- Status code distribution
-- Requested paths (top 3)
-- Client IP addresses (top 5)
-- User agents (top 3)
-- Total data size
+The system extracts and visualizes the following data points:
+
+- **Request Volume**: Total lines and requests processed
+- **HTTP Methods**: Distribution of GET, POST, PUT, DELETE, etc.
+- **Status Codes**: Success, client error, and server error rates
+- **Popular Endpoints**: Most frequently requested paths
+- **Client Information**: Top IP addresses and geographic distribution
+- **User Agents**: Browser and device statistics
+- **Response Times**: Average, min, max response durations
+- **Error Patterns**: Common error types and frequencies
+- **Traffic Patterns**: Request volume over time
 
 ## Technology Stack
 
-- **Frontend**: React, Framer Motion, TailwindCSS
-- **Backend**: Django, Django Channels, Daphne
-- **Async Processing**: Celery with 4 workers
-- **WebSockets**: Django Channels
-- **Message Broker**: Redis/RabbitMQ
-- **Web Server**: Daphne (ASGI)
+### Frontend
+- **Framework**: React with functional components
+- **State Management**: Context API and custom hooks
+- **Styling**: TailwindCSS for responsive design
+- **Animations**: Framer Motion for smooth transitions
+- **Visualization**: Recharts for interactive graphs
+
+### Backend
+- **Framework**: Django 4.x (ASGI mode)
+- **Real-time**: Django Channels for WebSockets
+- **Task Queue**: Celery for asynchronous processing
+- **Message Broker**: Redis for inter-process communication
+- **Server**: Daphne ASGI server
+
+### DevOps
+- **Containerization**: Docker & Docker Compose
+- **Environment**: Development, staging, and production configs
+- **CI/CD**: Automated testing and deployment workflow
 
 ## Scaling Considerations
 
-- The system can scale horizontally by adding more Celery workers
-- Large files are processed in chunks to manage memory usage
-- File uploads are prioritized by size to optimize user experience
-- The WebSocket architecture supports hundreds of concurrent connections
-- The frontend is optimized to display multiple concurrent tasks 
+### Horizontal Scaling
+- Celery workers can be dynamically scaled based on demand
+- Redis cluster for high-availability message brokering
+- Stateless backend design enables load balancing
+
+### Performance Optimizations
+- Chunked file processing prevents memory overflow
+- Priority queue ensures responsive user experience
+- File size-based prioritization optimizes throughput
+- WebSocket batching reduces unnecessary updates
+
+### Future Enhancements
+- Distributed file storage for handling larger logs
+- Stream processing for real-time log ingestion
+- Machine learning integration for anomaly detection
+- Custom log format templates for specialized analysis
