@@ -21,7 +21,7 @@ LogMate is a scalable, real-time log processing platform built with Django, Reac
 ### 🚀 Quick Start (Docker)
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/AfsalAfzz-Pro/LogMate
 cd logmate
 docker-compose up
 ```
